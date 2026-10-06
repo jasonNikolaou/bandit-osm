@@ -54,13 +54,13 @@ The plots show the mean over the 10 runs, with shaded regions equal to one
 sample standard deviation. The y-axis reports average approximate regret:
 
 ```text
-AAR(t) = ((1 - 1/e) * cumulative greedy reward
+AAR(t) = ((1 - 1/e) * cumulative optimal fixed-set reward
           - cumulative algorithm reward) / t.
 ```
 
-The comparator is the offline greedy fixed set computed separately for each
-evaluation stream. It is used only for evaluation and is not revealed to the
-algorithms.
+The comparator is the exact best fixed cardinality-$k$ set in hindsight,
+computed separately for each evaluation stream by exhaustive enumeration. It
+is used only for evaluation and is not revealed to the algorithms.
 
 To run or plot one dataset, pass its name:
 

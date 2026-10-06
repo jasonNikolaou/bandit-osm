@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from datasets.benchmarks import (
-    audit, coverage, fixed_greedy, influence, references, reward,
+    audit, coverage, fixed_optimum, influence, references, reward,
     teamformation,
 )
 
@@ -71,9 +71,13 @@ def test_coverage_can_generate_related_tasks_and_shared_generalists():
     assert np.all(data["specific_topics"] >= 2)
 
 
-def test_fixed_greedy_returns_feasible_trajectory(instance):
-    chosen, values = fixed_greedy(instance)
+def test_fixed_optimum_matches_brute_force(instance):
+    chosen, values = fixed_optimum(instance)
     assert len(chosen) == instance["k"]
     assert len(np.unique(chosen)) == instance["k"]
     np.testing.assert_allclose(
         values, [reward(instance, t, chosen) for t in range(instance["horizon"])])
+    brute_force = max(
+        sum(reward(instance, t, subset) for t in range(instance["horizon"]))
+        for subset in itertools.combinations(range(instance["n"]), instance["k"]))
+    assert values.sum() == pytest.approx(brute_force)

@@ -268,7 +268,7 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
             "structural_instance_fixed": True,
         },
         "reference": {
-            "meaning": "offline greedy fixed-set heuristic per stream",
+            "meaning": "exact best fixed cardinality-k set per stream",
         },
         "normalization": float(instance["normalization"]),
         "horizon": int(instance["horizon"]),

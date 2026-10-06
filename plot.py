@@ -52,9 +52,9 @@ def plot_experiment(name, *, result_root=RESULT_ROOT, plot_root=PLOT_ROOT):
         curves = []
         for row in method_rows:
             with np.load(source / row["reference_file"]) as data:
-                greedy = data["greedy"]
+                optimal = data["optimal"]
             with np.load(source / row["data_file"]) as data:
-                curves.append(_curve(greedy, data["normalized_rewards"]))
+                curves.append(_curve(optimal, data["normalized_rewards"]))
         curves = np.asarray(curves)
         count = len(curves)
         mean = curves.mean(axis=0)

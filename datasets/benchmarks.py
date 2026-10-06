@@ -1,6 +1,7 @@
 """Canonical Influence, Team Formation, and Weighted Coverage instances."""
 from __future__ import annotations
 
+import itertools
 import math
 from pathlib import Path
 
@@ -251,43 +252,56 @@ def reward(instance, t, action):
     return float(raw / instance["normalization"])
 
 
-def fixed_greedy(instance):
-    """Greedy best fixed set, evaluated against the whole task stream."""
+def _candidate_sets(n, k):
+    count = math.comb(n, k)
+    values = np.fromiter(
+        (element for subset in itertools.combinations(range(n), k)
+         for element in subset),
+        dtype=np.int32, count=count * k)
+    return values.reshape(count, k)
+
+
+def fixed_optimum(instance):
+    """Exact best fixed cardinality-k set for the complete task stream."""
     kind = instance["kind"]
-    chosen = []
     horizon = int(instance["horizon"])
     n = int(instance["n"])
+    k = int(instance["k"])
+    candidates = _candidate_sets(n, k)
     if kind == "teamformation":
         counts = np.bincount(instance["task_ids"], minlength=len(instance["weights"]))
         frequency = counts / horizon
         mean_weights = frequency @ instance["weights"]
         mean_penalties = np.tensordot(frequency, instance["penalties"], axes=1)
-        for _ in range(int(instance["k"])):
-            gains = mean_weights + mean_penalties[:, chosen].sum(axis=1)
-            gains[chosen] = -np.inf
-            chosen.append(int(np.argmax(gains)))
+        scores = mean_weights[candidates].sum(axis=1)
+        for left in range(k):
+            for right in range(left + 1, k):
+                scores += mean_penalties[
+                    candidates[:, left], candidates[:, right]]
     elif kind == "coverage":
         counts = np.bincount(
             instance["task_ids"], minlength=len(instance["feature_weights"]))
         mean_weights = counts @ instance["feature_weights"] / horizon
-        covered = np.zeros(instance["coverage"].shape[1], dtype=bool)
-        for _ in range(int(instance["k"])):
-            gains = instance["coverage"][:, ~covered] @ mean_weights[~covered]
-            gains[chosen] = -np.inf
-            selected = int(np.argmax(gains))
-            chosen.append(selected)
-            covered |= instance["coverage"][selected]
+        scores = np.empty(len(candidates))
+        for start in range(0, len(candidates), 10_000):
+            stop = min(start + 10_000, len(candidates))
+            covered = np.any(instance["coverage"][candidates[start:stop]], axis=1)
+            scores[start:stop] = covered @ mean_weights
     elif kind == "influence":
-        uncovered = np.ones((horizon, n), dtype=bool)
-        for _ in range(int(instance["k"])):
-            gains = (instance["masses"] * uncovered).mean(axis=0)
-            gains[chosen] = -np.inf
-            selected = int(np.argmax(gains))
-            chosen.append(selected)
-            selected_labels = instance["labels"][:, selected, None]
-            uncovered &= instance["labels"] != selected_labels
+        if k != 2:
+            raise ValueError("The exact Influence optimizer currently requires k=2")
+        left, right = candidates.T
+        scores = np.empty(len(candidates))
+        for start in range(0, len(candidates), 256):
+            stop = min(start + 256, len(candidates))
+            i, j = left[start:stop], right[start:stop]
+            distinct = instance["labels"][:, i] != instance["labels"][:, j]
+            values = instance["masses"][:, i]
+            values += distinct * instance["masses"][:, j]
+            scores[start:stop] = values.mean(axis=0)
     else:
         raise ValueError(f"Unknown objective: {kind}")
+    chosen = candidates[int(np.argmax(scores))].tolist()
     trajectory = np.array([reward(instance, t, chosen) for t in range(horizon)])
     return chosen, trajectory
 
@@ -333,9 +347,10 @@ def references(instance):
             iid_reach = q @ np.array([
                 1 - (1 - sizes / n) ** m for m in range(1, k + 1)])
             ew_values[t] = masses @ iid_reach / instance["normalization"]
-    greedy_set, greedy = fixed_greedy(instance)
+    optimal_set, optimal = fixed_optimum(instance)
     return {"random": random_values, "uniform_ew": ew_values,
-            "greedy": greedy, "greedy_set": np.asarray(greedy_set, dtype=np.int16)}
+            "optimal": optimal,
+            "optimal_set": np.asarray(optimal_set, dtype=np.int16)}
 
 
 def audit(instance):
