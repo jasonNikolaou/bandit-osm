@@ -1,0 +1,22 @@
+{
+  "generator": "influence",
+  "instance_file": "instance.npz",
+  "name": "influence",
+  "parameters": {
+    "horizon": 10000,
+    "k": 2,
+    "kind": "influence",
+    "retention": 0.05,
+    "seed": 41021
+  },
+  "sha256": "dd6e7792855e0fbf37806595390d3efc7b8d4f96e7387228c8ae3566111c7c8f",
+  "tuning_instance_file": "tuning_instance.npz",
+  "tuning_parameters": {
+    "horizon": 10000,
+    "k": 2,
+    "kind": "influence",
+    "retention": 0.05,
+    "seed": 10041040
+  },
+  "tuning_sha256": "e9dde8c847ef371cb45cb6cd5a9ac1cf4ee4f6fae0dcb070c19982e4193fb650"
+}

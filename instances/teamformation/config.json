@@ -1,0 +1,24 @@
+{
+  "generator": "teamformation",
+  "instance_file": "instance.npz",
+  "name": "teamformation",
+  "parameters": {
+    "horizon": 100000,
+    "kind": "teamformation",
+    "low_fraction": 0.75,
+    "noise": 1.0,
+    "requirement_spread": 0.05,
+    "seed": 51022
+  },
+  "sha256": "c71a1cb5ea35ea657ff85d8222bd28735635db8ad32aa256e5ffdab29337c596",
+  "tuning_instance_file": "tuning_instance.npz",
+  "tuning_parameters": {
+    "horizon": 10000,
+    "kind": "teamformation",
+    "low_fraction": 0.75,
+    "noise": 1.0,
+    "requirement_spread": 0.05,
+    "seed": 10051041
+  },
+  "tuning_sha256": "17e2de9b1b01af335301c3eb63b5226c901fe3692fffae463c1512e75f067dd3"
+}

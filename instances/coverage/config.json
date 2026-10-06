@@ -1,0 +1,24 @@
+{
+  "generator": "coverage",
+  "instance_file": "instance.npz",
+  "name": "coverage",
+  "parameters": {
+    "horizon": 100000,
+    "kind": "coverage",
+    "low_fraction": 0.75,
+    "seed": 61021,
+    "shared_generalists": 10,
+    "shared_topics": 3
+  },
+  "sha256": "9a5487bd2ad74a66aa65c6e2de3225e1b7b987e8c620e775a54a0ea55dfd46ac",
+  "tuning_instance_file": "tuning_instance.npz",
+  "tuning_parameters": {
+    "horizon": 10000,
+    "kind": "coverage",
+    "low_fraction": 0.75,
+    "seed": 10061040,
+    "shared_generalists": 10,
+    "shared_topics": 3
+  },
+  "tuning_sha256": "0d4caa32fe53305e5a5d9e668de10ac4361569dde9cb71b3ea9a297fa8f33ab7"
+}
