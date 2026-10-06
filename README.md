@@ -37,8 +37,8 @@ Run all algorithms on all datasets:
 python main.py
 ```
 
-This runs Sub-EW, Random, MSE3, OpaqueGreedy, Bandit-IG, Wan-2023, and
-Wan-2026 with 10 evaluation runs and 3 separate tuning runs. To change these
+This runs Sub-EW, Random, MSE3, OpaqueGreedy, Bandit-IG, BanditMLSM, and
+Poisson-BE with 10 evaluation runs and 3 separate tuning runs. To change these
 counts, use:
 
 ```bash
@@ -72,12 +72,12 @@ updates all candidate scores for every prefix. Comparators are shared across
 the seven learners within an evaluation repetition and are never revealed to
 them.
 
-Wan-2023 implements Algorithms 2 and 4 of
+BanditMLSM implements Algorithms 2 and 4 of
 [Wan et al. (ICML 2023)](https://proceedings.mlr.press/v202/wan23e/wan23e.pdf)
 for a single partition group of capacity $k$: the product-simplex extension samples at
 most $k$ elements, block exploration forms its one-query gradient estimate,
 and a product-simplex log barrier supplies the follow-the-regularized-leader
-update. Wan-2026 implements Algorithm 2 of
+update. Poisson-BE implements Algorithm 2 of
 [Wan and Zhang (2026)](https://arxiv.org/abs/2608.24627) for the
 uniform rank-$k$ matroid. Balanced exchanges have a direct formula and entropy
 projection reduces to a scalar root solve; the Poisson walk and one-query
@@ -85,11 +85,11 @@ insertion-loss estimator follow the paper. Both methods use only the scalar
 reward of the played feasible set.
 
 The published finite-horizon parameter prescriptions do not give learning
-instances at our dimensions: Wan-2023's prescribed block length is below one
-round, and Wan-2026's theorem invokes its fixed-base case. We therefore tune
-Wan-2023's block length and learning-rate multiplier, and Wan-2026's
+instances at our dimensions: BanditMLSM's prescribed block length is below one
+round, and Poisson-BE's theorem invokes its fixed-base case. We therefore tune
+BanditMLSM's block length and learning-rate multiplier, and Poisson-BE's
 exploration probability and learning-rate multiplier, on the independent
-tuning streams. Wan-2026 retains the paper's starting time, shrinkage, and
+tuning streams. Poisson-BE retains the paper's starting time, shrinkage, and
 event-cap formulas. The parameter horizon for both methods is the evaluation
 horizon even when candidate scores use the shorter tuning streams. The saved
 `experiment.json` and `tuning.csv` record the chosen parameters. These

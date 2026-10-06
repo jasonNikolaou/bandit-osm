@@ -4,7 +4,7 @@ import math
 import numpy as np
 
 from algorithms.wan_baselines import (
-    ALPHA, Wan2023, Wan2026, _barrier_direction,
+    ALPHA, BanditMLSM, PoissonBE, _barrier_direction,
     _barrier_hessian_times, _capped_entropy_projection,
     _simplex_barrier_ftrl,
 )
@@ -99,7 +99,7 @@ def test_capped_entropy_projection_satisfies_kkt_conditions():
 
 
 def test_both_wan_policies_play_feasible_sets_with_one_feedback():
-    for cls in (Wan2023, Wan2026):
+    for cls in (BanditMLSM, PoissonBE):
         policy = cls(8, 3, 75, seed=123)
         for _ in range(75):
             action = policy.act()
@@ -108,7 +108,7 @@ def test_both_wan_policies_play_feasible_sets_with_one_feedback():
             assert np.all((0 <= action) & (action < 8))
             policy.observe(len(action) / 3)
         assert np.all(np.isfinite(policy.iterate()))
-        if cls is Wan2026:
+        if cls is PoissonBE:
             assert np.isclose(policy.iterate().sum(), 3)
         else:
             assert policy.diagnostics()["exploration_rounds"] == math.ceil(75 / 32)

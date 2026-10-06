@@ -84,7 +84,7 @@ def _tuning_grid(method):
 
 def _tuning_configs(method, instance):
     """Separate practical grids for the two Wan algorithms."""
-    if method == "Wan-2023":
+    if method == "BanditMLSM":
         multipliers = ((1e4, 1e5, 1e6, 1e7)
                        if int(instance["n"]) < 50
                        else (1e6, 1e7, 1e8))
@@ -92,7 +92,7 @@ def _tuning_configs(method, instance):
             {"eta_multiplier": multiplier,
              "policy_kwargs": {"block_size": block}}
             for block in (8, 32, 128, 512) for multiplier in multipliers]
-    if method == "Wan-2026":
+    if method == "Poisson-BE":
         return [
             {"eta_multiplier": multiplier,
              "policy_kwargs": {"exploration_probability": gamma}}
@@ -214,8 +214,8 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
         candidates, choice = _tune_policy(
             tuning_instance, method, policy_class, seeds, output,
             parameter_horizon=(int(instance["horizon"])
-                               if method in ("Bandit-IG", "Wan-2023",
-                                             "Wan-2026") else None))
+                               if method in ("Bandit-IG", "BanditMLSM",
+                                             "Poisson-BE") else None))
         tuning_rows.extend(candidates)
         selected[method] = {
             "eta_multiplier": choice["eta_multiplier"],
@@ -309,12 +309,12 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
             "selection_metric": "highest mean normalized reward",
             "separate_instance": True,
             "eta_multipliers": list(ETA_MULTIPLIERS),
-            "eta_multipliers_scope": "original methods only; see Wan candidate configurations in tuning.csv",
+            "eta_multipliers_scope": "original methods only; see BanditMLSM and Poisson-BE candidate configurations in tuning.csv",
             "non_learning_rate_parameters": (
-                "Published values except practical Wan-2023 block length and "
-                "Wan-2026 exploration probability, tuned on separate streams"),
+                "Published values except practical BanditMLSM block length and "
+                "Poisson-BE exploration probability, tuned on separate streams"),
             "wan_parameter_note": (
-                "Wan-2023 block length and eta multiplier, and Wan-2026 "
+                "BanditMLSM block length and eta multiplier, and Poisson-BE "
                 "exploration probability and eta multiplier, are selected "
                 "on independent short streams using the evaluation horizon "
                 "for parameter formulas. The published finite-horizon "

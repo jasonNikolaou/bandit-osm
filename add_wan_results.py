@@ -12,13 +12,13 @@ from pathlib import Path
 
 import numpy as np
 
-from algorithms.wan_baselines import Wan2023, Wan2026
+from algorithms.wan_baselines import BanditMLSM, PoissonBE
 from create_instance import INSTANCE_ROOT, ROOT, load_instance
 from main import (POLICY_SEED, SEED_STRIDE, STREAM_SEED_OFFSET, _filename,
                   _sha256, _tune_policy, run_policy)
 
 
-BASELINES = {"Wan-2023": Wan2023, "Wan-2026": Wan2026}
+BASELINES = {"BanditMLSM": BanditMLSM, "Poisson-BE": PoissonBE}
 ARCHIVE_ROOT = ROOT / "archive/2026-10-06_pre_wan_baselines"
 
 
@@ -121,17 +121,17 @@ def add(name):
 
         summary["algorithms"].append(method)
         summary["evaluation"]["learner_refresh"] = (
-            "Wan-2023 and Wan-2026 were added on the saved paired streams; "
+            "BanditMLSM and Poisson-BE were added on the saved paired streams; "
             "all five earlier learners and every prefix comparator were reused.")
         summary["tuning"]["wan_parameter_note"] = (
-            "Wan-2023 block length and eta multiplier, and Wan-2026 "
+            "BanditMLSM block length and eta multiplier, and Poisson-BE "
             "exploration probability and eta multiplier, are selected on "
             "independent short tuning streams. Their parameter horizon is "
             "the full evaluation horizon. The published finite-horizon "
             "formulas are outside their nondegenerate regimes here.")
         summary["tuning"]["non_learning_rate_parameters"] = (
-            "Published values for the five original methods; Wan-2023 block "
-            "length and Wan-2026 exploration probability tuned separately")
+            "Published values for the five original methods; BanditMLSM block "
+            "length and Poisson-BE exploration probability tuned separately")
         (output / "experiment.json").write_text(
             json.dumps(summary, indent=2, sort_keys=True) + "\n")
         _write_csv(output / "runs.csv", rows, list(rows[0]))

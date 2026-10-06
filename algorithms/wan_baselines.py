@@ -75,7 +75,7 @@ def _simplex_barrier_ftrl(cumulative_gradient, eta):
     return result
 
 
-class Wan2023:
+class BanditMLSM:
     """Wan et al. (2023), MLSMWrapper with BanditMLSM4PS, one group.
 
     The paper's asymptotic choice L=d^-2 T^(1/3) is below one for our
@@ -205,7 +205,7 @@ def _capped_entropy_projection(log_weights, total, lower, upper):
                           log_lower, log_upper))
 
 
-class Wan2026:
+class PoissonBE:
     """Wan and Zhang (2026), Algorithm 2 for a uniform rank-k matroid."""
 
     def __init__(self, n, k, horizon, seed, *, eta_multiplier=1.0,

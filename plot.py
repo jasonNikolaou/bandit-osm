@@ -29,7 +29,7 @@ PLOT_POINTS = 2_000
 COLORS = {
     "Sub-EW": "#0072B2", "Random": "#777777", "MSE3": "#D55E00",
     "OpaqueGreedy": "#009E73", "Bandit-IG": "#CC79A7",
-    "Wan-2023": "#E69F00", "Wan-2026": "#56B4E9",
+    "BanditMLSM": "#E69F00", "Poisson-BE": "#56B4E9",
 }
 
 
