@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from algorithms.related_work import BanditIG, OpaqueGreedy, softmax
+from main import _tune_policy
 
 
 def test_opaque_greedy_uses_report_exploration_probability():
@@ -32,7 +33,6 @@ def test_opaque_greedy_feeds_unscaled_observed_reward():
 def test_banditig_literal_blackwell_vector_equals_scalar_shortcut():
     policy = BanditIG(6, 2, 1000, 2)
     theta = np.array([.05, .10, .15, .20, .25, .25])
-    policy.logw[0] = np.log(theta)
     policy.stage, policy.arm = 0, 4
     policy.theta = theta.copy()
     before = policy.logw[0].copy()
@@ -71,6 +71,35 @@ def test_banditig_tunes_rate_and_keeps_theoretical_exploration():
     assert policy.eta_multiplier == 4
 
 
+def test_banditig_evaluation_horizon_avoids_saturated_tuning_q():
+    short = BanditIG(100, 3, 10_000, 1)
+    evaluation = BanditIG(100, 3, 100_000, 1)
+    assert short.q == 1
+    assert evaluation.q == pytest.approx(
+        (100 ** 2 * math.log(100) / 100_000) ** (1 / 3))
+    assert evaluation.q < 1
+
+
+def test_banditig_tuning_stream_length_is_separate_from_parameter_horizon(tmp_path):
+    instance = {
+        "kind": "teamformation", "n": 4, "k": 2, "horizon": 3,
+        "normalization": 2.,
+        "weights": np.array([[1., .8, .2, .1], [.2, .1, 1., .8]]),
+        "penalties": np.zeros((2, 4, 4)),
+        "task_ids": np.array([0, 1, 0]),
+    }
+    candidates, _ = _tune_policy(
+        instance, "Bandit-IG", BanditIG, [(17, 19)], tmp_path,
+        parameter_horizon=100_000)
+    expected_q = (4 ** 2 * math.log(4) / 100_000) ** (1 / 3)
+    assert len(candidates) == 5
+    assert all(candidate["runs"][0]["parameters"]["q"] ==
+               pytest.approx(expected_q) for candidate in candidates)
+    for candidate in candidates:
+        with np.load(tmp_path / candidate["runs"][0]["data_file"]) as saved:
+            assert len(saved["normalized_rewards"]) == 3
+
+
 def test_banditig_nonexploration_does_not_advance_blackwell_state():
     policy = BanditIG(5, 2, 100, 3)
     before = policy.logw.copy()
@@ -86,3 +115,48 @@ def test_banditig_distribution_is_reused_without_feedback():
     policy.stage = None
     policy.observe(0.5)
     assert np.allclose(softmax(policy.logw[0:1])[0], theta)
+
+
+def test_banditig_decreasing_rate_matches_cumulative_loss_distribution():
+    policy = BanditIG(4, 2, 1000, 5, eta_multiplier=2)
+    cumulative = np.zeros((2, 4))
+    observations = [
+        (0, 1, .7), (1, 3, .2), (0, 2, .4), (0, 0, .9),
+        (1, 1, .6), (0, 3, .3),
+    ]
+    for stage, arm, value in observations:
+        theta = softmax(policy.logw[stage])
+        policy.stage, policy.arm, policy.theta = stage, arm, theta
+        policy.observe(value)
+        cumulative[stage] += policy.last_payoff / policy.q
+        count = policy.updates[stage]
+        eta = (policy.eta_multiplier * policy.q / policy.n
+               * math.sqrt(2 * math.log(policy.n) / count))
+        expected = softmax(-eta * cumulative[stage])
+        assert np.allclose(softmax(policy.logw[stage]), expected)
+    assert policy.updates.tolist() == [4, 2]
+
+
+def test_banditig_two_phase_experts_recover_while_old_update_has_linear_regret():
+    regrets = []
+    for rounds in (400, 1600):
+        policy = BanditIG(2, 1, rounds, 1)
+        old_logw = np.zeros(2)
+        corrected_loss = old_loss = 0.0
+        for t in range(rounds):
+            loss = (np.array([0., 1.]) if t < rounds // 4
+                    else np.array([1., 0.]))
+            corrected_loss += softmax(policy.logw[0]) @ loss
+            old_loss += softmax(old_logw) @ loss
+            scaled_loss = policy.n / policy.q * loss
+            policy._update_hedge(0, scaled_loss)
+            eta = (policy.q / policy.n
+                   * math.sqrt(2 * math.log(policy.n) / (t + 1)))
+            old_logw -= eta * scaled_loss
+            old_logw -= old_logw.max()
+        best_fixed_loss = rounds / 4
+        regrets.append((corrected_loss - best_fixed_loss,
+                        old_loss - best_fixed_loss))
+    assert regrets[1][0] < 10
+    assert regrets[1][1] > .4 * 1600
+    assert regrets[1][1] > 3 * regrets[0][1]

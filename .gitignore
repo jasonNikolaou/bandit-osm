@@ -8,6 +8,7 @@ __pycache__/
 
 # Generated experiment outputs
 /results/
+/archive/
 /results-local/
 /plots-local/
 /instances-local/

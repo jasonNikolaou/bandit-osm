@@ -67,7 +67,7 @@ class MSE3(Policy):
 
 
 class OpaqueGreedy(Policy):
-    """Streeter-Golovin opaque-feedback greedy specialization."""
+    """Streeter-Golovin (2008); opaque details: CMU-CS-07-171, §4.4.3."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.logw = np.zeros((self.k, self.n))
@@ -84,7 +84,9 @@ class OpaqueGreedy(Policy):
             "gamma": self.gamma, "default_gamma": self.default_gamma,
             "eta": self.eta, "default_eta": self.default_eta,
             "eta_multiplier": self.eta_multiplier,
-            "source": "CMU-CS-07-171 Section 4.4.3",
+            "source": (
+                "Streeter and Golovin (2008), with opaque-feedback "
+                "implementation in report CMU-CS-07-171, Section 4.4.3"),
             "feedback": "unscaled observed reward to the probed stage/arm",
         }
 
@@ -113,6 +115,9 @@ class BanditIG(Policy):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.logw = np.zeros((self.k, self.n))
+        # Each greedy stage is an independent Hedge learner. Recompute the
+        # decreasing-rate weights from cumulative feedback.
+        self.cumulative_losses = np.zeros((self.k, self.n))
         self.default_q = min(
             1.0, (self.n ** 2 * math.log(self.n) / self.T) ** (1 / 3))
         self.q = self.default_q
@@ -122,7 +127,7 @@ class BanditIG(Policy):
             "eta_multiplier": self.eta_multiplier,
             "eta_schedule": (
                 "eta_multiplier*q/n*sqrt(2*log(n)/stage_update_count); "
-                "applied to p_hat/q"),
+                "applied to cumulative p_hat/q"),
             "source": "Niazadeh et al. Algorithms 3-4, Example 1",
         }
 
@@ -143,12 +148,16 @@ class BanditIG(Policy):
             payoff = self.n * reward * self.theta[self.arm] * np.ones(self.n)
             payoff[self.arm] -= self.n * reward
             self.last_payoff = payoff
-            self.updates[self.stage] += 1
-            eta = (self.eta_multiplier * self.q / self.n
-                   * math.sqrt(2 * math.log(self.n) / self.updates[self.stage]))
-            self.logw[self.stage] -= eta * payoff / self.q
-            self.logw[self.stage] -= self.logw[self.stage].max()
+            self._update_hedge(self.stage, payoff / self.q)
         self.t += 1
+
+    def _update_hedge(self, stage, loss):
+        self.updates[stage] += 1
+        eta = (self.eta_multiplier * self.q / self.n
+               * math.sqrt(2 * math.log(self.n) / self.updates[stage]))
+        self.cumulative_losses[stage] += loss
+        self.logw[stage] = -eta * self.cumulative_losses[stage]
+        self.logw[stage] -= self.logw[stage].max()
 
     def iterate(self):
         return self.logw

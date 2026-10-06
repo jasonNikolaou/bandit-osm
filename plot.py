@@ -32,9 +32,9 @@ COLORS = {
 }
 
 
-def _curve(comparator, rewards):
+def _curve(prefix_optimal, rewards):
     rounds = np.arange(1, len(rewards) + 1)
-    return (ALPHA * np.cumsum(comparator) - np.cumsum(rewards)) / rounds
+    return (ALPHA * prefix_optimal - np.cumsum(rewards)) / rounds
 
 
 def plot_experiment(name, *, result_root=RESULT_ROOT, plot_root=PLOT_ROOT):
@@ -52,7 +52,7 @@ def plot_experiment(name, *, result_root=RESULT_ROOT, plot_root=PLOT_ROOT):
         curves = []
         for row in method_rows:
             with np.load(source / row["reference_file"]) as data:
-                optimal = data["optimal"]
+                optimal = data["prefix_optimal"]
             with np.load(source / row["data_file"]) as data:
                 curves.append(_curve(optimal, data["normalized_rewards"]))
         curves = np.asarray(curves)
@@ -82,7 +82,7 @@ def plot_experiment(name, *, result_root=RESULT_ROOT, plot_root=PLOT_ROOT):
     axis.set_ylabel(r"$\mathrm{AAR}(t)$", fontsize=AXIS_LABEL_SIZE)
     axis.tick_params(axis="both", labelsize=TICK_LABEL_SIZE)
     axis.grid(alpha=.2)
-    axis.legend(ncol=2, frameon=False)
+    axis.legend(ncol=2, frameon=False, fontsize=11)
     figure.subplots_adjust(left=.15, bottom=.17, right=.94, top=.97)
     target = Path(plot_root)
     target.mkdir(parents=True, exist_ok=True)

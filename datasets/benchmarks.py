@@ -306,7 +306,67 @@ def fixed_optimum(instance):
     return chosen, trajectory
 
 
-def references(instance):
+def candidate_task_rewards(instance):
+    """Normalized reward of every size-k set for each reusable task type."""
+    kind = instance["kind"]
+    if kind == "influence":
+        return None
+    candidates = _candidate_sets(int(instance["n"]), int(instance["k"]))
+    if kind == "teamformation":
+        scores = instance["weights"][:, candidates].sum(axis=2)
+        for left in range(candidates.shape[1]):
+            for right in range(left + 1, candidates.shape[1]):
+                scores += instance["penalties"][
+                    :, candidates[:, left], candidates[:, right]]
+    elif kind == "coverage":
+        scores = np.empty((len(instance["feature_weights"]), len(candidates)))
+        for start in range(0, len(candidates), 5_000):
+            stop = min(start + 5_000, len(candidates))
+            covered = np.any(instance["coverage"][candidates[start:stop]], axis=1)
+            scores[:, start:stop] = (
+                instance["feature_weights"] @ covered.T)
+    else:
+        raise ValueError(f"Unknown objective: {kind}")
+    return scores / instance["normalization"]
+
+
+def prefix_optimum(instance, *, task_rewards=None):
+    """Exact value of the best one fixed set for every stream prefix."""
+    candidates = _candidate_sets(int(instance["n"]), int(instance["k"]))
+    horizon = int(instance["horizon"])
+    if instance["kind"] == "influence":
+        if int(instance["k"]) != 2:
+            raise ValueError("The exact Influence optimizer requires k=2")
+        left, right = candidates.T
+        scores = np.zeros(len(candidates))
+        optimum = np.empty(horizon)
+        for t in range(horizon):
+            labels = instance["labels"][t]
+            masses = instance["masses"][t]
+            values = masses[left] + (labels[left] != labels[right]) * masses[right]
+            scores += values / instance["normalization"]
+            optimum[t] = scores.max()
+        return optimum, False
+
+    if task_rewards is None:
+        task_rewards = candidate_task_rewards(instance)
+    ids = instance["task_ids"]
+    # A common maximizer of every task type is optimal for every mixture of
+    # those types. Verify this property on the loaded instance before using it.
+    common = int(np.argmax(task_rewards[0]))
+    common_verified = bool(np.all(
+        task_rewards[:, common] >= task_rewards.max(axis=1) - 1e-12))
+    if common_verified:
+        return np.cumsum(task_rewards[ids, common]), True
+    scores = np.zeros(len(candidates))
+    optimum = np.empty(horizon)
+    for t, task in enumerate(ids):
+        scores += task_rewards[task]
+        optimum[t] = scores.max()
+    return optimum, False
+
+
+def references(instance, *, task_rewards=None):
     n, k = int(instance["n"]), int(instance["k"])
     kind = instance["kind"]
     q = sampling_coefficients(n, k)[2]
@@ -348,8 +408,16 @@ def references(instance):
                 1 - (1 - sizes / n) ** m for m in range(1, k + 1)])
             ew_values[t] = masses @ iid_reach / instance["normalization"]
     optimal_set, optimal = fixed_optimum(instance)
+    prefix_optimal, common_verified = prefix_optimum(
+        instance, task_rewards=task_rewards)
+    final_set_prefix = np.cumsum(optimal)
+    if np.any(prefix_optimal + 1e-8 < final_set_prefix):
+        raise AssertionError("Prefix optimum fell below the final-set value")
+    if not np.isclose(prefix_optimal[-1], final_set_prefix[-1], atol=1e-7):
+        raise AssertionError("Prefix and final-horizon optimum disagree")
     return {"random": random_values, "uniform_ew": ew_values,
-            "optimal": optimal,
+            "optimal": optimal, "prefix_optimal": prefix_optimal,
+            "common_maximizer_verified": np.asarray(common_verified),
             "optimal_set": np.asarray(optimal_set, dtype=np.int16)}
 
 

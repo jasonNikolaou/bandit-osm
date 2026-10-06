@@ -15,7 +15,8 @@ import numpy as np
 
 from algorithms import POLICIES
 from create_instance import EXPERIMENTS, INSTANCE_ROOT, ROOT, create_all, load_instance
-from datasets.benchmarks import audit, references, resample_stream, reward
+from datasets.benchmarks import (audit, candidate_task_rewards, references,
+                                 resample_stream, reward)
 
 
 RESULT_ROOT = ROOT / "results"
@@ -47,11 +48,14 @@ def _filename(method):
     return re.sub(r"[^a-z0-9]+", "_", method.lower()).strip("_")
 
 
-def run_policy(instance, policy_class, seed, *, eta_multiplier=1.0):
+def run_policy(instance, policy_class, seed, *, eta_multiplier=1.0,
+               parameter_horizon=None):
     horizon = int(instance["horizon"])
     k = int(instance["k"])
     policy = policy_class(
-        instance["n"], k, horizon, seed, eta_multiplier=eta_multiplier)
+        instance["n"], k,
+        horizon if parameter_horizon is None else int(parameter_horizon),
+        seed, eta_multiplier=eta_multiplier)
     initial = np.asarray(policy.iterate(), dtype=np.float32)
     iterates = np.empty((horizon,) + initial.shape, dtype=np.float32)
     normalized = np.empty(horizon)
@@ -84,7 +88,8 @@ def _stream_arrays(instance):
     return {"task_ids": instance["task_ids"]}
 
 
-def _tune_policy(instance, method, policy_class, seeds, output):
+def _tune_policy(instance, method, policy_class, seeds, output,
+                 *, parameter_horizon=None):
     directory = output / "tuning" / _filename(method)
     directory.mkdir(parents=True, exist_ok=True)
     candidates = []
@@ -94,7 +99,8 @@ def _tune_policy(instance, method, policy_class, seeds, output):
             tuning_stream = resample_stream(instance, stream_seed)
             policy, arrays = run_policy(
                 tuning_stream, policy_class, policy_seed,
-                eta_multiplier=eta_multiplier)
+                eta_multiplier=eta_multiplier,
+                parameter_horizon=parameter_horizon)
             archive = directory / (
                 f"candidate_{candidate:02d}_run_{repetition:02d}.npz")
             np.savez_compressed(archive, **arrays)
@@ -169,7 +175,9 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
             for repetition in range(tuning_repetitions)
         ]
         candidates, choice = _tune_policy(
-            tuning_instance, method, policy_class, seeds, output)
+            tuning_instance, method, policy_class, seeds, output,
+            parameter_horizon=(int(instance["horizon"])
+                               if method == "Bandit-IG" else None))
         tuning_rows.extend(candidates)
         selected[method] = {
             "eta_multiplier": choice["eta_multiplier"],
@@ -193,13 +201,14 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
     evaluation_root = output / "evaluation"
     evaluation_root.mkdir()
     evaluation_seed = int(config["parameters"]["seed"])
+    task_rewards = candidate_task_rewards(instance)
     for repetition in range(evaluation_repetitions):
         run_dir = evaluation_root / f"run_{repetition:02d}"
         run_dir.mkdir()
         stream_seed = (
             evaluation_seed + STREAM_SEED_OFFSET + SEED_STRIDE * repetition)
         evaluation_instance = resample_stream(instance, stream_seed)
-        reference = references(evaluation_instance)
+        reference = references(evaluation_instance, task_rewards=task_rewards)
         stream_file = run_dir / "stream.npz"
         reference_file = run_dir / "references.npz"
         np.savez_compressed(stream_file, **_stream_arrays(evaluation_instance))
@@ -259,6 +268,11 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
             "non_learning_rate_parameters": "theoretical values only",
             "selected": selected,
             "repetitions": tuning_repetitions,
+            "bandit_ig_parameter_horizon": int(instance["horizon"]),
+            "bandit_ig_tuning_rounds": int(tuning_instance["horizon"]),
+            "bandit_ig_horizon_note": (
+                "Bandit-IG q and its learning-rate schedule use the evaluation "
+                "horizon; candidate rewards use independent shorter tuning streams."),
         },
         "evaluation": {
             "repetitions": evaluation_repetitions,
@@ -268,7 +282,7 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
             "structural_instance_fixed": True,
         },
         "reference": {
-            "meaning": "exact best fixed cardinality-k set per stream",
+            "meaning": "exact best fixed cardinality-k set for every stream prefix",
         },
         "normalization": float(instance["normalization"]),
         "horizon": int(instance["horizon"]),
