@@ -5,6 +5,7 @@ import math
 import numpy as np
 
 from .sub_ew import SubEW
+from .wan_baselines import Wan2023, Wan2026
 
 
 def softmax(log_weights):
@@ -172,4 +173,6 @@ POLICIES = {
     "MSE3": MSE3,
     "OpaqueGreedy": OpaqueGreedy,
     "Bandit-IG": BanditIG,
+    "Wan-2023": Wan2023,
+    "Wan-2026": Wan2026,
 }

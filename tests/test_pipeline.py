@@ -5,7 +5,7 @@ import numpy as np
 
 from algorithms import POLICIES
 from create_instance import create_instance, load_instance
-from main import run_experiment
+from main import _tuning_configs, run_experiment
 from plot import plot_experiment
 
 
@@ -41,7 +41,8 @@ def test_complete_saved_pipeline(tmp_path):
     assert "exploration_multiplier" not in tuning_rows[0]
     assert sum(row["method"] == "Random" for row in tuning_rows) == 1
     for method in set(POLICIES) - {"Random"}:
-        assert sum(row["method"] == method for row in tuning_rows) == 5
+        assert sum(row["method"] == method for row in tuning_rows) == len(
+            _tuning_configs(method, tuning))
     with (result_root / name / "runs.csv").open(newline="") as stream:
         rows = list(csv.DictReader(stream))
     assert len(rows) == 3 * len(POLICIES)

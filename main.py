@@ -49,13 +49,13 @@ def _filename(method):
 
 
 def run_policy(instance, policy_class, seed, *, eta_multiplier=1.0,
-               parameter_horizon=None):
+               parameter_horizon=None, policy_kwargs=None):
     horizon = int(instance["horizon"])
     k = int(instance["k"])
     policy = policy_class(
         instance["n"], k,
         horizon if parameter_horizon is None else int(parameter_horizon),
-        seed, eta_multiplier=eta_multiplier)
+        seed, eta_multiplier=eta_multiplier, **(policy_kwargs or {}))
     initial = np.asarray(policy.iterate(), dtype=np.float32)
     iterates = np.empty((horizon,) + initial.shape, dtype=np.float32)
     normalized = np.empty(horizon)
@@ -82,6 +82,30 @@ def _tuning_grid(method):
     return (1.0,) if method == "Random" else ETA_MULTIPLIERS
 
 
+def _tuning_configs(method, instance):
+    """Separate practical grids for the two Wan algorithms."""
+    if method == "Wan-2023":
+        multipliers = ((1e4, 1e5, 1e6, 1e7)
+                       if int(instance["n"]) < 50
+                       else (1e6, 1e7, 1e8))
+        return [
+            {"eta_multiplier": multiplier,
+             "policy_kwargs": {"block_size": block}}
+            for block in (8, 32, 128, 512) for multiplier in multipliers]
+    if method == "Wan-2026":
+        return [
+            {"eta_multiplier": multiplier,
+             "policy_kwargs": {"exploration_probability": gamma}}
+            for gamma in (.05, .2, .5)
+            for multiplier in (.25, 1.0, 4.0, 16.0)] + [
+            {"eta_multiplier": multiplier,
+             "policy_kwargs": {"exploration_probability": gamma}}
+            for gamma in (.05, .2, .5)
+            for multiplier in (64.0, 256.0)]
+    return [{"eta_multiplier": multiplier, "policy_kwargs": {}}
+            for multiplier in _tuning_grid(method)]
+
+
 def _stream_arrays(instance):
     if instance["kind"] == "influence":
         return {key: instance[key] for key in ("labels", "masses", "sizes")}
@@ -89,18 +113,30 @@ def _stream_arrays(instance):
 
 
 def _tune_policy(instance, method, policy_class, seeds, output,
-                 *, parameter_horizon=None):
+                 *, parameter_horizon=None, reuse_existing=False):
     directory = output / "tuning" / _filename(method)
     directory.mkdir(parents=True, exist_ok=True)
     candidates = []
-    for candidate, eta_multiplier in enumerate(_tuning_grid(method)):
+    for candidate, configuration in enumerate(_tuning_configs(method, instance)):
+        eta_multiplier = configuration["eta_multiplier"]
+        policy_kwargs = configuration["policy_kwargs"]
+        record_file = directory / f"candidate_{candidate:02d}.json"
+        if reuse_existing and record_file.exists():
+            record = json.loads(record_file.read_text())
+            if (record["eta_multiplier"] == eta_multiplier
+                    and record.get("policy_kwargs", {}) == policy_kwargs
+                    and [(run["stream_seed"], run["policy_seed"])
+                         for run in record["runs"]] == list(seeds)):
+                candidates.append(record)
+                continue
         runs = []
         for repetition, (stream_seed, policy_seed) in enumerate(seeds):
             tuning_stream = resample_stream(instance, stream_seed)
             policy, arrays = run_policy(
                 tuning_stream, policy_class, policy_seed,
                 eta_multiplier=eta_multiplier,
-                parameter_horizon=parameter_horizon)
+                parameter_horizon=parameter_horizon,
+                policy_kwargs=policy_kwargs)
             archive = directory / (
                 f"candidate_{candidate:02d}_run_{repetition:02d}.npz")
             np.savez_compressed(archive, **arrays)
@@ -119,11 +155,12 @@ def _tune_policy(instance, method, policy_class, seeds, output,
             "method": method,
             "candidate": candidate,
             "eta_multiplier": eta_multiplier,
+            "policy_kwargs": policy_kwargs,
             "mean_normalized_reward": float(np.mean([
                 run["mean_normalized_reward"] for run in runs])),
             "runs": runs,
         }
-        (directory / f"candidate_{candidate:02d}.json").write_text(
+        record_file.write_text(
             json.dumps(record, default=_jsonable, indent=2, sort_keys=True)
             + "\n")
         candidates.append(record)
@@ -177,10 +214,12 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
         candidates, choice = _tune_policy(
             tuning_instance, method, policy_class, seeds, output,
             parameter_horizon=(int(instance["horizon"])
-                               if method == "Bandit-IG" else None))
+                               if method in ("Bandit-IG", "Wan-2023",
+                                             "Wan-2026") else None))
         tuning_rows.extend(candidates)
         selected[method] = {
             "eta_multiplier": choice["eta_multiplier"],
+            "policy_kwargs": choice["policy_kwargs"],
             "tuning_reward": choice["mean_normalized_reward"],
             "candidate": choice["candidate"],
         }
@@ -189,13 +228,17 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
             f"(tuning reward {choice['mean_normalized_reward']:.6f})")
 
     tuning_fields = (
-        "method", "candidate", "eta_multiplier", "mean_normalized_reward")
+        "method", "candidate", "eta_multiplier", "policy_kwargs",
+        "mean_normalized_reward")
     with (output / "tuning.csv").open("w", newline="") as stream:
         writer = csv.DictWriter(
             stream, fieldnames=tuning_fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows(
-            {key: row[key] for key in tuning_fields} for row in tuning_rows)
+            {**{key: row[key] for key in tuning_fields
+                if key != "policy_kwargs"},
+             "policy_kwargs": json.dumps(row["policy_kwargs"], sort_keys=True)}
+            for row in tuning_rows)
 
     rows = []
     evaluation_root = output / "evaluation"
@@ -220,7 +263,8 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
                 + 100_003 * repetition)
             policy, arrays = run_policy(
                 evaluation_instance, policy_class, policy_seed,
-                eta_multiplier=selected[method]["eta_multiplier"])
+                eta_multiplier=selected[method]["eta_multiplier"],
+                policy_kwargs=selected[method]["policy_kwargs"])
             archive = run_dir / f"{_filename(method)}.npz"
             np.savez_compressed(archive, **arrays)
             record = {
@@ -265,7 +309,16 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
             "selection_metric": "highest mean normalized reward",
             "separate_instance": True,
             "eta_multipliers": list(ETA_MULTIPLIERS),
-            "non_learning_rate_parameters": "theoretical values only",
+            "eta_multipliers_scope": "original methods only; see Wan candidate configurations in tuning.csv",
+            "non_learning_rate_parameters": (
+                "Published values except practical Wan-2023 block length and "
+                "Wan-2026 exploration probability, tuned on separate streams"),
+            "wan_parameter_note": (
+                "Wan-2023 block length and eta multiplier, and Wan-2026 "
+                "exploration probability and eta multiplier, are selected "
+                "on independent short streams using the evaluation horizon "
+                "for parameter formulas. The published finite-horizon "
+                "prescriptions are outside their nondegenerate regimes here."),
             "selected": selected,
             "repetitions": tuning_repetitions,
             "bandit_ig_parameter_horizon": int(instance["horizon"]),
