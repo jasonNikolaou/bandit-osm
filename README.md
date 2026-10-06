@@ -109,8 +109,7 @@ Balancing that term with exploration at the prescribed `q` gives the
 During tuning, the learning-rate multipliers are scored on three independent
 shorter streams, but Bandit-IG's parameter horizon remains the evaluation
 horizon. Thus the two 100,000-round datasets use `T=100000` for `q` even though
-the tuning streams contain 10,000 rounds. The saved evaluation streams and
-the other learners' actions and rewards are reused in the corrected results.
+the tuning streams contain 10,000 rounds.
 
 OpaqueGreedy follows Streeter and Golovin's 2008 proceedings paper; the
 precise opaque-feedback construction is in their 2007 Carnegie Mellon

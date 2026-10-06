@@ -137,26 +137,17 @@ def test_banditig_decreasing_rate_matches_cumulative_loss_distribution():
     assert policy.updates.tolist() == [4, 2]
 
 
-def test_banditig_two_phase_experts_recover_while_old_update_has_linear_regret():
+def test_banditig_two_phase_experts_have_sublinear_regret():
     regrets = []
     for rounds in (400, 1600):
         policy = BanditIG(2, 1, rounds, 1)
-        old_logw = np.zeros(2)
-        corrected_loss = old_loss = 0.0
+        cumulative_loss = 0.0
         for t in range(rounds):
             loss = (np.array([0., 1.]) if t < rounds // 4
                     else np.array([1., 0.]))
-            corrected_loss += softmax(policy.logw[0]) @ loss
-            old_loss += softmax(old_logw) @ loss
-            scaled_loss = policy.n / policy.q * loss
-            policy._update_hedge(0, scaled_loss)
-            eta = (policy.q / policy.n
-                   * math.sqrt(2 * math.log(policy.n) / (t + 1)))
-            old_logw -= eta * scaled_loss
-            old_logw -= old_logw.max()
+            cumulative_loss += softmax(policy.logw[0]) @ loss
+            policy._update_hedge(0, policy.n / policy.q * loss)
         best_fixed_loss = rounds / 4
-        regrets.append((corrected_loss - best_fixed_loss,
-                        old_loss - best_fixed_loss))
-    assert regrets[1][0] < 10
-    assert regrets[1][1] > .4 * 1600
-    assert regrets[1][1] > 3 * regrets[0][1]
+        regrets.append(cumulative_loss - best_fixed_loss)
+    assert regrets[1] < 10
+    assert regrets[1] / 1600 < regrets[0] / 400

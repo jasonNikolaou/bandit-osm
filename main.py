@@ -309,11 +309,13 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
             "selection_metric": "highest mean normalized reward",
             "separate_instance": True,
             "eta_multipliers": list(ETA_MULTIPLIERS),
-            "eta_multipliers_scope": "original methods only; see BanditMLSM and Poisson-BE candidate configurations in tuning.csv",
+            "eta_multipliers_scope": (
+                "shared grid for Sub-EW, MSE3, OpaqueGreedy, and Bandit-IG; "
+                "method-specific candidate configurations are in tuning.csv"),
             "non_learning_rate_parameters": (
                 "Published values except practical BanditMLSM block length and "
                 "Poisson-BE exploration probability, tuned on separate streams"),
-            "wan_parameter_note": (
+            "practical_parameter_note": (
                 "BanditMLSM block length and eta multiplier, and Poisson-BE "
                 "exploration probability and eta multiplier, are selected "
                 "on independent short streams using the evaluation horizon "
