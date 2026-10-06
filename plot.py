@@ -27,7 +27,7 @@ AXIS_LABEL_SIZE = 16
 TICK_LABEL_SIZE = 14
 PLOT_POINTS = 2_000
 COLORS = {
-    "EW": "#0072B2", "Random": "#777777", "MSE3": "#D55E00",
+    "Sub-EW": "#0072B2", "Random": "#777777", "MSE3": "#D55E00",
     "OpaqueGreedy": "#009E73", "Bandit-IG": "#CC79A7",
 }
 

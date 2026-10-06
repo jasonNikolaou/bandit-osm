@@ -10,7 +10,7 @@ import numpy as np
 from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 
-from algorithms.bandit_osm import sampling_coefficients
+from algorithms.sub_ew import sampling_coefficients
 
 
 def _knn(embeddings, neighbors):

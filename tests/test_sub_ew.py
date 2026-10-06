@@ -4,7 +4,7 @@ import math
 import numpy as np
 import pytest
 
-from algorithms.bandit_osm import (BanditOSM, minimum_variance_coefficients,
+from algorithms.sub_ew import (SubEW, minimum_variance_coefficients,
                                    sampling_coefficients, shifted_feedback)
 
 
@@ -49,7 +49,7 @@ def test_custom_q_endpoints():
     for q, expected_alpha, expected_variance in [
         ([0, 1], .75, None), ([1, 0], .5, 34.0)
     ]:
-        policy = BanditOSM(34, 2, 10, 5, q_mode="custom", q=q, eta=.008)
+        policy = SubEW(34, 2, 10, 5, q_mode="custom", q=q, eta=.008)
         assert policy.parameters["alpha_q"] == pytest.approx(expected_alpha)
         assert policy.parameters["V_q"] == expected_variance
         for _ in range(10):
@@ -79,7 +79,7 @@ def test_estimator_expectation_by_exact_enumeration():
 
 
 def test_exact_log_domain_update_and_sampling():
-    policy = BanditOSM(7, 3, 5000, 93)
+    policy = SubEW(7, 3, 5000, 93)
     expected_eta = math.sqrt(math.log(7 / 3) / (policy.T * policy.Vq))
     assert policy.eta == pytest.approx(expected_eta)
     element_counts = np.zeros(7)
@@ -96,7 +96,7 @@ def test_exact_log_domain_update_and_sampling():
 
 
 def test_protocol_guards():
-    policy = BanditOSM(5, 2, 1, 4)
+    policy = SubEW(5, 2, 1, 4)
     with pytest.raises(RuntimeError):
         policy.observe(.5)
     policy.act()

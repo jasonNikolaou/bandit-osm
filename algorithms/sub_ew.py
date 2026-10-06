@@ -1,4 +1,4 @@
-"""Exponential-weights algorithm from the Bandit OSM paper."""
+"""Sub-EW for online submodular maximization with bandit feedback."""
 from __future__ import annotations
 
 import math
@@ -87,8 +87,8 @@ def shifted_feedback(counts, probabilities, sample_size, reward, q, a):
     return result
 
 
-class BanditOSM:
-    """Vanilla log-domain EW with IID sampling and scalar feedback."""
+class SubEW:
+    """Sub-EW in the log domain with IID sampling and scalar feedback."""
 
     def __init__(self, n, k, horizon, seed, *, eta=None, eta_multiplier=1.0,
                  q_mode="classic", q=None):
@@ -127,7 +127,7 @@ class BanditOSM:
         self.min_log_probability = float(self.logp.min())
         self.underflow_rounds = 0
         self.parameters = {
-            "source": "Bandit_OSM (7).pdf Algorithm 2",
+            "source": "Sub-EW, Algorithm 2",
             "eta": self.eta, "default_eta": self.default_eta,
             "eta_multiplier": self.eta_multiplier,
             "rho": self.rho, "beta": self.beta,

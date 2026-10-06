@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 import numpy as np
 
-from .bandit_osm import BanditOSM
+from .sub_ew import SubEW
 
 
 def softmax(log_weights):
@@ -158,7 +158,7 @@ class BanditIG(Policy):
 
 
 POLICIES = {
-    "EW": BanditOSM,
+    "Sub-EW": SubEW,
     "Random": RandomPolicy,
     "MSE3": MSE3,
     "OpaqueGreedy": OpaqueGreedy,

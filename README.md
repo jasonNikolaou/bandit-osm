@@ -37,7 +37,7 @@ Run all algorithms on all datasets:
 python main.py
 ```
 
-This runs EW, Random, MSE3, OpaqueGreedy, and Bandit-IG with 10 evaluation
+This runs Sub-EW, Random, MSE3, OpaqueGreedy, and Bandit-IG with 10 evaluation
 runs and 3 separate tuning runs. To change these counts, use:
 
 ```bash
