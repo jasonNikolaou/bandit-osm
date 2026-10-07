@@ -100,6 +100,7 @@ class BanditMLSM:
         if not math.isfinite(self.eta) or self.eta <= 0:
             raise ValueError("eta must be finite and positive")
         self.x = np.full((self.k, self.n), 1 / (self.n + 1))
+        self.next_x = None
         self.cumulative_gradient = np.zeros((self.k, self.n))
         self.t = 0
         self.pending = False
@@ -114,6 +115,7 @@ class BanditMLSM:
             "eta_multiplier": self.eta_multiplier,
             "extension": "k independent standard simplexes with a dummy element",
             "iterate": "sum of k simplex-coordinate vectors",
+            "block_update": "activate the new iterate at the next block boundary",
         }
 
     def _choose_exploration_round(self):
@@ -172,10 +174,14 @@ class BanditMLSM:
         if self.exploring:
             estimate = self.d * self.scalar_factor * float(reward)
             self.cumulative_gradient += estimate * self.inverse_direction
-            self.x = _simplex_barrier_ftrl(self.cumulative_gradient, self.eta)
+            self.next_x = _simplex_barrier_ftrl(
+                self.cumulative_gradient, self.eta)
         self.t += 1
         self.pending = False
         if self.t < self.T and self.t % self.block_size == 0:
+            if self.next_x is None:
+                raise RuntimeError("Block ended without an exploration update")
+            self.x, self.next_x = self.next_x, None
             self._choose_exploration_round()
 
     def iterate(self):

@@ -52,6 +52,40 @@ def test_2023_exploration_scalar_is_unbiased_for_directional_derivative():
         assert np.isclose(expectation, target)
 
 
+def test_2023_exploitation_keeps_block_iterate_until_boundary():
+    policy = BanditMLSM(3, 1, 8, seed=7, block_size=4, base_eta=1)
+    policy.exploration_offset = 0
+    played_points = []
+
+    def record_extension(point):
+        played_points.append(point.copy())
+        return np.array([], dtype=int)
+
+    policy._sample_extension = record_extension
+    block_iterate = policy.x.copy()
+    policy.act()
+    # Supply a known nonzero gradient so the next iterate differs from x_q.
+    policy.scalar_factor = 1 / policy.d
+    policy.inverse_direction = np.array([[1., 0., 0.]])
+    policy.observe(1)
+    next_iterate = policy.next_x.copy()
+    assert not np.allclose(next_iterate, block_iterate)
+    assert np.array_equal(policy.x, block_iterate)
+
+    for _ in range(3):
+        policy.act()
+        assert not policy.exploring
+        assert np.array_equal(played_points[-1], block_iterate)
+        policy.observe(0)
+
+    assert np.array_equal(policy.x, next_iterate)
+    assert policy.next_x is None
+    policy.exploration_offset = 3
+    policy.act()
+    assert not policy.exploring
+    assert np.array_equal(played_points[-1], next_iterate)
+
+
 def test_uniform_matroid_balanced_exchange_marginals():
     # For A={0,2}, the paper requires row sums 1, column sums x, and
     # support only on feasible exchanges.
