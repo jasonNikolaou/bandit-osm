@@ -319,8 +319,10 @@ def run_experiment(name, *, instance_root=INSTANCE_ROOT,
                 "BanditMLSM block length and eta multiplier, and Poisson-BE "
                 "exploration probability and eta multiplier, are selected "
                 "on independent short streams using the evaluation horizon "
-                "for parameter formulas. The published finite-horizon "
-                "prescriptions are outside their nondegenerate regimes here."),
+                "for parameter formulas. BanditMLSM's eta multiplier scales "
+                "a practical reference from Algorithm 1 / Theorem 3.3, not "
+                "the product-simplex wrapper rate in Lemma 5.1. The wrapper's "
+                "prescribed block length is below one round here."),
             "selected": selected,
             "repetitions": tuning_repetitions,
             "bandit_ig_parameter_horizon": int(instance["horizon"]),

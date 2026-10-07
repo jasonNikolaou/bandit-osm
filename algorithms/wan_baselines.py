@@ -78,9 +78,10 @@ def _simplex_barrier_ftrl(cumulative_gradient, eta):
 class BanditMLSM:
     """Wan et al. (2023), MLSMWrapper with BanditMLSM4PS, one group.
 
-    The paper's asymptotic choice L=d^-2 T^(1/3) is below one for our
-    experimental dimensions. A practical block size must therefore be
-    supplied/tuned; this class does not claim the theorem's finite-T bound.
+    Lemma 5.1 uses eta=d^(-7/3) T^(-1/3) and L=d^(-5/3) T^(1/3)
+    for this wrapper. Its block length is below one at our dimensions.
+    We tune L and use Algorithm 1's eta as a practical numerical base;
+    this class does not claim the wrapper theorem's finite-T bound.
     """
 
     def __init__(self, n, k, horizon, seed, *, eta_multiplier=1.0,
@@ -91,10 +92,15 @@ class BanditMLSM:
         self.block_size = int(block_size)
         if self.block_size < 1:
             raise ValueError("block_size must be positive")
-        # The paper's eta=d^-4 T^-2/3 is extremely small at our dimensions.
-        self.theoretical_eta = self.d**-4 * self.T**(-2 / 3)
+        # Lemma 5.1's wrapper formulas are recorded for attribution only.
+        self.wrapper_theoretical_eta = self.d**(-7 / 3) * self.T**(-1 / 3)
+        self.wrapper_theoretical_block_size = (
+            self.d**(-5 / 3) * self.T**(1 / 3))
+        # Algorithm 1 / Theorem 3.3 supplies a practical tuning reference,
+        # not the prescribed learning rate for the product-simplex wrapper.
+        self.algorithm1_eta_reference = self.d**-4 * self.T**(-2 / 3)
         self.base_eta = (float(base_eta) if base_eta is not None
-                         else self.theoretical_eta)
+                         else self.algorithm1_eta_reference)
         self.eta_multiplier = float(eta_multiplier)
         self.eta = self.base_eta * self.eta_multiplier
         if not math.isfinite(self.eta) or self.eta <= 0:
@@ -109,9 +115,14 @@ class BanditMLSM:
         self.parameters = {
             "source": "Wan et al. (2023), Algorithms 2 and 4; one partition group",
             "block_size": self.block_size,
-            "paper_block_size": self.d**-2 * self.T**(1 / 3),
             "eta": self.eta,
-            "theoretical_eta": self.theoretical_eta,
+            "eta_base": self.base_eta,
+            "eta_base_source": (
+                "explicit override" if base_eta is not None else
+                "practical reference from Algorithm 1 / Theorem 3.3"),
+            "wrapper_theoretical_eta": self.wrapper_theoretical_eta,
+            "wrapper_theoretical_block_size": self.wrapper_theoretical_block_size,
+            "wrapper_parameter_source": "Wan et al. (2023), proof of Lemma 5.1",
             "eta_multiplier": self.eta_multiplier,
             "extension": "k independent standard simplexes with a dummy element",
             "iterate": "sum of k simplex-coordinate vectors",
